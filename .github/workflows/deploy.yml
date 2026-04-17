@@ -1,0 +1,54 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [ "main" ]  # 当 main 分支有代码推送时，自动触发部署
+  workflow_dispatch:       # 允许你在 GitHub 网页上手动触发部署
+
+# 赋予工作流必要的权限
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 只允许一个部署任务同时运行，防止冲突
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  # 构建任务
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # 或你的 Node 版本
+          cache: 'npm'       # 启用依赖缓存，加快构建速度
+
+      - name: Install dependencies
+        run: npm ci         # 使用 ci 命令，严格根据 package-lock.json 安装依赖
+
+      - name: Build project
+        run: npm run build  # 执行你的构建命令
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './dist'    # 你的构建输出目录，Vite 默认是 dist
+
+  # 部署任务
+  deploy:
+    needs: build # 等待构建任务完成
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
